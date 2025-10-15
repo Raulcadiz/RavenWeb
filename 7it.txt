@@ -1,0 +1,10 @@
+export interface ChannelInfo {
+  title: string;
+  group: string;
+  logo: string;
+  url: string;
+  chNumber: number;
+  channelType: ChType;
+  seenInfoCh?: SeenInfo;
+  totalDuration?: number;
+}
