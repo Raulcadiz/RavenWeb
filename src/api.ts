@@ -6,7 +6,7 @@ const getApiBaseUrl = () => {
   
   // Si es localhost, usar localhost
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:5199/api';
+    return 'http://0.0.0.0:5199/api';
   }
   
   // Si es una IP de red, usar esa IP

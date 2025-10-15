@@ -1,0 +1,25 @@
+PS C:\Users\g3v3r\source\repos\AmiIptvPlayer> dotnet build
+Restauración completada (1,1s)
+  AmiIptvPlayer net8.0-windows10.0.19041.0 correcto con 4 advertencias (44,0s) → AmiIptvPlayer\bin\Debug\net8.0-windows10.0.19041.0\win10-x64\AmiIptvPlayer.dll
+    C:\Users\g3v3r\source\repos\AmiIptvPlayer\AmiIptvPlayer\Services\StorageService.cs(32,44): warning CS1998: El método asincrónico carece de operadores "await" y se ejecutará de forma sincrónica. Puede usar el operador 'await' para esperar llamadas API que no sean de bloqueo o 'await Task.Run(...)' para hacer tareas enlazadas a la CPU en un subproceso en segundo plano.
+    C:\Users\g3v3r\source\repos\AmiIptvPlayer\AmiIptvPlayer\Services\StorageService.cs(80,34): warning CS1998: El método asincrónico carece de operadores "await" y se ejecutará de forma sincrónica. Puede usar el operador 'await' para esperar llamadas API que no sean de bloqueo o 'await Task.Run(...)' para hacer tareas enlazadas a la CPU en un subproceso en segundo plano.
+    C:\Users\g3v3r\source\repos\AmiIptvPlayer\AmiIptvPlayer\Services\StorageService.cs(32,44): warning CS1998: El método asincrónico carece de operadores "await" y se ejecutará de forma sincrónica. Puede usar el operador 'await' para esperar llamadas API que no sean de bloqueo o 'await Task.Run(...)' para hacer tareas enlazadas a la CPU en un subproceso en segundo plano.
+    C:\Users\g3v3r\source\repos\AmiIptvPlayer\AmiIptvPlayer\Services\StorageService.cs(80,34): warning CS1998: El método asincrónico carece de operadores "await" y se ejecutará de forma sincrónica. Puede usar el operador 'await' para esperar llamadas API que no sean de bloqueo o 'await Task.Run(...)' para hacer tareas enlazadas a la CPU en un subproceso en segundo plano.
+  AmiIptvPlayer net8.0-android error con 3 errores y 2 advertencias (38,5s) → AmiIptvPlayer\bin\Debug\net8.0-android\AmiIptvPlayer.dll
+    C:\Users\g3v3r\source\repos\AmiIptvPlayer\AmiIptvPlayer\Services\StorageService.cs(32,44): warning CS1998: El método asincrónico carece de operadores "await" y se ejecutará de forma sincrónica. Puede usar el operador 'await' para esperar llamadas API que no sean de bloqueo o 'await Task.Run(...)' para hacer tareas enlazadas a la CPU en un subproceso en segundo plano.
+    C:\Users\g3v3r\source\repos\AmiIptvPlayer\AmiIptvPlayer\Services\StorageService.cs(80,34): warning CS1998: El método asincrónico carece de operadores "await" y se ejecutará de forma sincrónica. Puede usar el operador 'await' para esperar llamadas API que no sean de bloqueo o 'await Task.Run(...)' para hacer tareas enlazadas a la CPU en un subproceso en segundo plano.
+    C:\Users\g3v3r\source\repos\AmiIptvPlayer\AmiIptvPlayer\Platforms\Android\AndroidManifest.xml : error APT2260:
+      resource mipmap/appicon (aka com.amiiptv.player:mipmap/appicon) not found.
+
+      Este error se debe probablemente a un problema con el archivo AndroidManifest.xml o con un atributo de generación
+      del manifiesto de Android en un archivo de código fuente.
+    C:\Users\g3v3r\source\repos\AmiIptvPlayer\AmiIptvPlayer\Platforms\Android\AndroidManifest.xml : error APT2260:
+      resource mipmap/appicon_round (aka com.amiiptv.player:mipmap/appicon_round) not found.
+
+      Este error se debe probablemente a un problema con el archivo AndroidManifest.xml o con un atributo de generación
+      del manifiesto de Android en un archivo de código fuente.
+    C:\Program Files\dotnet\packs\Microsoft.Android.Sdk.Windows\34.0.154\tools\Xamarin.Android.Aapt2.targets(214,3): error APT2067:
+      failed processing manifest.
+
+
+Compilación error con 3 errores y 6 advertencias en 46,3s

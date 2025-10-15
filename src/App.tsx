@@ -36,8 +36,7 @@ function App() {
   const [selectedChannel, setSelectedChannel] = useState<ChannelInfo | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [isMuted, setIsMuted] = useState(false); // Intentar con audio activado por defecto
-  const [isStreamLoading, setIsStreamLoading] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Iniciar muteado
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<Player | null>(null);
@@ -70,328 +69,65 @@ function App() {
       playerRef.current = null;
     }
 
-    // Detectar tipo de stream y configurar URL
+    // Convertir .ts a .m3u8
     let finalUrl = url;
-    let streamType = 'application/x-mpegURL'; // HLS por defecto
-    let hasAudio = false;
-    
     if (url.endsWith('.ts')) {
       finalUrl = url.replace('.ts', '.m3u8');
       console.log('🔧 Fixed URL from .ts to .m3u8:', finalUrl);
-    } else if (url.includes('.m3u8') || url.includes('get.php')) {
-      // Es HLS
-      streamType = 'application/x-mpegURL';
-      console.log('📺 Detected HLS stream');
-      
-      // Detectar si es un stream HLS con audio (como RTVE)
-      if (url.includes('rtve.es') || url.includes('m3u8')) {
-        hasAudio = true;
-        console.log('🎵 HLS stream with audio detected (like RTVE)');
-      }
-    } else if (url.includes('.mp4') || url.includes('.avi') || url.includes('.mkv')) {
-      // Es video directo
-      streamType = 'video/mp4';
-      hasAudio = true; // Los videos directos suelen tener audio
-      console.log('🎬 Detected direct video stream');
-    } else {
-      // Intentar como HLS por defecto
-      console.log('❓ Unknown stream type, trying as HLS');
     }
-    
-    console.log('🔗 Final URL:', finalUrl);
-    console.log('📋 Stream type:', streamType);
 
     const player = videojs(videoRef.current, {
       controls: true,
-      autoplay: hasAudio ? true : 'muted', // Autoplay con audio si el stream lo tiene
+      autoplay: 'muted',
       preload: 'auto',
       fluid: false,
       fill: true,
       responsive: true,
       liveui: true,
-      muted: false, // Intentar siempre con audio activado
-      // Configuraciones específicas según el tipo de stream
-      crossorigin: 'anonymous',
+      muted: true,
       html5: {
         vhs: {
-          overrideNative: !hasAudio, // Usar nativo para streams con audio
+          overrideNative: true,
           enableLowInitialPlaylist: true,
           smoothQualityChange: true,
           useBandwidthFromLocalStorage: true,
           allowSeeksWithinUnsafeLiveWindow: true,
           handlePartialData: true,
-          // Configuraciones adicionales para IPTV
-          experimentalBufferBasedABR: !hasAudio,
-          experimentalLLHLS: !hasAudio,
-          // Intentar diferentes configuraciones
-          enableLowInitialPlaylist: true,
-          limitRenditionByPlayerDimensions: false,
-          allowSeeksWithinUnsafeLiveWindow: true,
         },
-        nativeAudioTracks: hasAudio, // Usar nativo para streams con audio
-        nativeVideoTracks: hasAudio,
-        // Intentar reproducir sin restricciones
-        preloadTextTracks: hasAudio,
+        nativeAudioTracks: false,
+        nativeVideoTracks: false,
       },
     });
 
     player.src({
       src: finalUrl,
-      type: streamType
+      type: 'application/x-mpegURL'
     });
 
     player.ready(() => {
       player.load();
-      
-      // Intentar reproducir inmediatamente con audio activado
-      const tryPlay = async () => {
-        try {
-          // Intentar reproducir con audio activado
-          player.muted(false);
-          player.volume(1.0);
-          await player.play();
-          console.log('✅ Reproducción exitosa con audio!');
-          setIsMuted(false);
-          setIsStreamLoading(false);
-          
-          // Activar pantalla completa automáticamente
-          setTimeout(() => {
-            try {
-              player.requestFullscreen();
-              console.log('📺 Pantalla completa activada automáticamente');
-            } catch (err) {
-              console.log('❌ No se pudo activar pantalla completa:', err);
-            }
-          }, 1000);
-          
-        } catch (err) {
-          console.log('❌ Error en reproducción con audio:', err);
-          
-          // Si falla con audio, intentar muteado como fallback
-          setTimeout(async () => {
-            try {
-              player.muted(true);
-              await player.play();
-              console.log('✅ Reproducción exitosa (muteado como fallback)!');
-              setIsMuted(true);
-              setIsStreamLoading(false);
-              
-              // Activar pantalla completa automáticamente
-              setTimeout(() => {
-                try {
-                  player.requestFullscreen();
-                  console.log('📺 Pantalla completa activada automáticamente');
-                } catch (err) {
-                  console.log('❌ No se pudo activar pantalla completa:', err);
-                }
-              }, 1000);
-              
-            } catch (err2) {
-              console.log('❌ Segundo intento falló:', err2);
-              setError('No se puede reproducir en el navegador. Usa VLC.');
-              setIsStreamLoading(false);
-            }
-          }, 1000);
-        }
-      };
-      
-      // Intentar reproducir después de un breve delay
-      setTimeout(tryPlay, 500);
-    });
-
-    // Timeout para detectar si el stream no carga
-    const loadingTimeout = setTimeout(() => {
-      console.log('⚠️ Timeout de carga alcanzado');
-      console.log('📊 Player ready state:', player.readyState());
-      console.log('📊 Player network state:', player.networkState());
-      console.log('📊 Player current time:', player.currentTime());
-      
-      if (player.readyState() < 2) {
-        console.log('❌ Stream no tiene datos suficientes');
-        setError('El stream no se puede cargar en el navegador. Usa VLC para reproducir.');
-        setIsStreamLoading(false);
-      } else {
-        console.log('✅ Stream tiene datos, intentando reproducir...');
-        // El stream tiene datos, intentar reproducir
+      setTimeout(() => {
         player.play().catch(err => {
-          console.log('❌ No se puede reproducir:', err);
-          setError('Stream cargado pero no se puede reproducir. Usa VLC.');
-          setIsStreamLoading(false);
+          if (err.name !== 'AbortError') {
+            console.error('Error playing:', err);
+          }
         });
-      }
-    }, 8000); // 8 segundos timeout
+      }, 300);
+    });
 
     player.on('volumechange', () => {
-      const muted = player.muted();
-      console.log('🔊 Volume changed - muted:', muted);
-      setIsMuted(muted);
-    });
-
-    // También sincronizar cuando el player esté listo
-    player.on('loadedmetadata', () => {
-      const muted = player.muted();
-      console.log('📊 Metadata loaded - muted:', muted);
-      
-      // Verificar si el stream tiene audio
-      const videoElement = player.el().querySelector('video');
-      if (videoElement) {
-        const audioTracks = videoElement.audioTracks ? videoElement.audioTracks.length : 0;
-        console.log('🎵 Audio tracks:', audioTracks);
-        console.log('🎵 Video element muted:', videoElement.muted);
-        console.log('🎵 Video element volume:', videoElement.volume);
-        
-        // Solo mostrar advertencia si realmente hay un problema
-        if (audioTracks === 0 && player.readyState() >= 2) {
-          console.log('⚠️ STREAM SIN AUDIO DETECTADO');
-          console.log('💡 Este es un stream IPTV sin audio en el navegador');
-          console.log('💡 Los streams IPTV a menudo no tienen audio en navegadores web');
-          console.log('💡 Usa VLC para reproducir con audio');
-          
-          // Solo mostrar error si el stream está funcionando pero sin audio
-          setTimeout(() => {
-            if (player.readyState() >= 2 && player.currentTime() > 0) {
-              setError('Este canal no tiene audio en el navegador. Es normal en streams IPTV. Usa VLC para reproducir con audio.');
-            }
-          }, 3000); // Esperar 3 segundos para confirmar
-        } else {
-          console.log('✅ Stream con audio detectado o aún cargando');
-        }
-      }
-      
-      setIsMuted(muted);
+      setIsMuted(player.muted());
     });
 
     player.on('error', () => {
       const error = player.error();
-      if (error) {
-        console.error('Player error:', error);
-        console.error('Error code:', error.code);
-        console.error('Error message:', error.message);
-        console.error('Stream URL:', finalUrl);
-        
-        if (error.code === 4) {
-          setError('No se pudo cargar el stream. El canal puede estar caído o no es compatible con el navegador.');
-        } else {
-          setError(`Error de reproducción: ${error.message || 'Error desconocido'} (Código: ${error.code})`);
-        }
+      if (error && error.code === 4) {
+        setError('No se pudo cargar el stream. El canal puede estar caído.');
       }
-    });
-
-    // Agregar más eventos de debug
-    player.on('loadstart', () => {
-      console.log('🔄 Load started for:', finalUrl);
-      setIsStreamLoading(true);
-    });
-
-    player.on('loadedmetadata', () => {
-      console.log('📊 Metadata loaded');
-      console.log('📺 Video dimensions:', player.videoWidth(), 'x', player.videoHeight());
-      console.log('⏱️ Duration:', player.duration());
-    });
-
-    player.on('loadeddata', () => {
-      console.log('📊 Data loaded - stream ready to play');
-    });
-
-    player.on('canplaythrough', () => {
-      console.log('✅ Stream can play through - fully loaded');
-    });
-
-    player.on('canplay', () => {
-      console.log('▶️ Can play');
-      console.log('📺 Video dimensions:', player.videoWidth(), 'x', player.videoHeight());
-      console.log('⏱️ Duration:', player.duration());
-      
-      // Limpiar errores cuando el stream puede reproducirse
-      setError(null);
-    });
-
-    player.on('waiting', () => {
-      console.log('⏳ Waiting for data');
-    });
-
-    player.on('stalled', () => {
-      console.log('⚠️ Stream stalled');
     });
 
     player.on('playing', () => {
-      console.log('🎬 Video is playing!');
-      console.log('📺 Current time:', player.currentTime());
-      console.log('🔊 Audio muted:', player.muted());
-      
-      // Limpiar errores cuando el video funciona
       setError(null);
-      setIsStreamLoading(false);
-      clearTimeout(loadingTimeout); // Limpiar timeout si el video empieza a reproducirse
-      
-      // Sincronizar estado de audio
-      const muted = player.muted();
-      setIsMuted(muted);
-      
-      if (muted) {
-        console.log('🔇 Video reproduciéndose pero sin audio');
-        console.log('💡 Usuario puede hacer clic en "Activar Audio" para escuchar');
-      } else {
-        console.log('🔊 Video reproduciéndose CON audio');
-      }
-    });
-
-    player.on('pause', () => {
-      console.log('⏸️ Video paused');
-    });
-
-    player.on('ended', () => {
-      console.log('🏁 Video ended');
-    });
-
-    // Evento para detectar cuando el usuario hace clic en el botón de play
-    player.on('play', () => {
-      console.log('▶️ Play button clicked');
-      // No hacer nada automático aquí, dejar que el usuario controle el audio
-    });
-
-    // Activar audio cuando el usuario haga clic en el video
-    player.on('useractive', () => {
-      if (player.muted()) {
-        console.log('👤 Usuario activo - activando audio...');
-        player.muted(false);
-        player.volume(1.0);
-        setIsMuted(false);
-        console.log('✅ Audio activado por interacción del usuario');
-      }
-    });
-
-    // También activar audio cuando el usuario haga clic en cualquier parte de la página
-    const handleUserInteraction = () => {
-      if (playerRef.current && playerRef.current.muted()) {
-        console.log('🖱️ Interacción del usuario - activando audio...');
-        playerRef.current.muted(false);
-        playerRef.current.volume(1.0);
-        setIsMuted(false);
-        console.log('✅ Audio activado por interacción global');
-      }
-    };
-
-    // Agregar listeners para interacción del usuario
-    document.addEventListener('click', handleUserInteraction, { once: true });
-    document.addEventListener('keydown', handleUserInteraction, { once: true });
-    document.addEventListener('touchstart', handleUserInteraction, { once: true });
-
-    // Eventos de pantalla completa
-    player.on('fullscreenchange', () => {
-      if (player.isFullscreen()) {
-        console.log('📺 Entrando a pantalla completa');
-      } else {
-        console.log('📺 Saliendo de pantalla completa');
-      }
-    });
-
-    player.on('enterFullscreen', () => {
-      console.log('📺 Pantalla completa activada');
-    });
-
-    player.on('exitFullscreen', () => {
-      console.log('📺 Pantalla completa desactivada');
     });
 
     playerRef.current = player;
@@ -435,8 +171,8 @@ function App() {
         setGroups(groupsData);
       }
     } catch (err: any) {
-      console.error('❌ Error loading data:', err);
-      setError(`Error al cargar los datos: ${err.response?.data?.error || err.message || 'Error desconocido'}`);
+      setError('Error al cargar los datos');
+      console.error('Error loading data:', err);
     } finally {
       setIsLoading(false);
     }
@@ -545,7 +281,7 @@ function App() {
 
   const openChannel = (channel: ChannelInfo) => {
     setSelectedChannel(channel);
-    setIsMuted(false); // Intentar con audio activado
+    setIsMuted(true);
     setError(null);
   };
 
@@ -894,366 +630,41 @@ function App() {
               <div className="flex flex-wrap items-center gap-2">
                 {isMuted && (
                   <button
-                    onClick={() => {
-                      if (playerRef.current) {
-                        console.log('🔊 Activando audio...');
-                        const player = playerRef.current;
-                        
-                        // Debug completo del estado del player
-                        console.log('📊 Player state:', {
-                          muted: player.muted(),
-                          volume: player.volume(),
-                          readyState: player.readyState(),
-                          networkState: player.networkState(),
-                          currentTime: player.currentTime(),
-                          duration: player.duration(),
-                          hasAudio: player.audioTracks ? player.audioTracks().length : 'unknown'
-                        });
-                        
-                        // Intentar múltiples métodos
-                        try {
-                          // Método 1: Desmutear directamente
-                          player.muted(false);
-                          player.volume(1.0);
-                          
-                          // Método 2: Forzar reproducción
-                          player.play().catch(err => console.log('❌ Error al reproducir:', err));
-                          
-                          // Método 3: Verificar después de un delay
-                          setTimeout(() => {
-                            const muted = player.muted();
-                            const volume = player.volume();
-                            console.log('🔊 Estado después de activar:', {
-                              muted: muted,
-                              volume: volume,
-                              canPlay: player.readyState() >= 2
-                            });
-                            
-                            if (muted) {
-                              console.log('❌ Sigue muteado - intentando método alternativo');
-                              // Método alternativo: recrear el player
-                              player.muted(false);
-                              player.volume(1.0);
-                              player.currentTime(player.currentTime() + 0.1);
-                            }
-                            
-                            setIsMuted(muted);
-                          }, 200);
-                          
-                        } catch (err) {
-                          console.error('❌ Error al activar audio:', err);
-                        }
-                      }
-                    }}
-                    className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 rounded-lg font-bold flex items-center gap-2 transition-all animate-pulse text-white shadow-lg"
+                    onClick={toggleMute}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg font-semibold flex items-center gap-2 transition-all animate-pulse"
                   >
                     <span className="text-2xl">🔇</span>
-                    <span>🔊 Activar Audio</span>
+                    <span>Activar Audio</span>
                   </button>
                 )}
                 <button
-                  onClick={() => {
-                    if (playerRef.current) {
+                  onClick={async () => {
+                    const url = selectedChannel.url.replace('.ts', '.m3u8');
+                    
+                    // En móvil, usar Share API si está disponible
+                    if (navigator.share) {
                       try {
-                        playerRef.current.requestFullscreen();
-                        console.log('📺 Pantalla completa activada manualmente');
+                        await navigator.share({
+                          title: selectedChannel.title,
+                          text: 'Abrir en VLC o MX Player',
+                          url: url
+                        });
                       } catch (err) {
-                        console.log('❌ Error al activar pantalla completa:', err);
+                        console.log('Share cancelled');
                       }
-                    }
-                  }}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold flex items-center gap-2 transition-all text-white"
-                >
-                  <span>📺</span>
-                  <span>Pantalla Completa</span>
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('🧪 Probando audio con stream de prueba...');
-                    if (playerRef.current && selectedChannel) {
-                      const player = playerRef.current;
-                      
-                      // Stream de prueba con audio garantizado
-                      const testUrl = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
-                      
-                      player.src({
-                        src: testUrl,
-                        type: 'application/x-mpegURL'
+                    } else {
+                      // En PC, copiar al portapapeles
+                      navigator.clipboard.writeText(url).then(() => {
+                        alert('✅ URL copiada!\n\nAbre VLC:\n1. Media → Open Network Stream (Ctrl+N)\n2. Pega la URL\n3. Play → Audio funcionará');
                       });
-                      
-                      player.load();
-                      player.muted(false);
-                      player.volume(1.0);
-                      
-                      setTimeout(() => {
-                        player.play().then(() => {
-                          console.log('✅ Stream de prueba reproduciéndose');
-                          setIsMuted(false);
-                          setError(null);
-                        }).catch(err => {
-                          console.log('❌ Error con stream de prueba:', err);
-                        });
-                      }, 1000);
                     }
                   }}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-semibold flex items-center gap-2 transition-all text-white"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold flex items-center gap-2 transition-all"
+                  title="Abrir en VLC/MX Player"
                 >
-                  <span>🧪</span>
-                  <span>Probar Audio</span>
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('📺 Probando stream RTVE con audio...');
-                    if (playerRef.current && selectedChannel) {
-                      const player = playerRef.current;
-                      
-                      // Stream RTVE con audio garantizado
-                      const rtveUrl = 'https://ztnr.rtve.es/ztnr/1688877.m3u8';
-                      
-                      player.src({
-                        src: rtveUrl,
-                        type: 'application/x-mpegURL'
-                      });
-                      
-                      player.load();
-                      player.muted(false);
-                      player.volume(1.0);
-                      
-                      setTimeout(() => {
-                        player.play().then(() => {
-                          console.log('✅ Stream RTVE reproduciéndose');
-                          setIsMuted(false);
-                          setError(null);
-                        }).catch(err => {
-                          console.log('❌ Error con stream RTVE:', err);
-                        });
-                      }, 1000);
-                    }
-                  }}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold flex items-center gap-2 transition-all text-white"
-                >
-                  <span>📺</span>
-                  <span>Probar RTVE</span>
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('🔄 Volviendo al stream original...');
-                    if (playerRef.current && selectedChannel) {
-                      const player = playerRef.current;
-                      const originalUrl = selectedChannel.url;
-                      
-                      // Volver al stream original
-                      player.src({
-                        src: originalUrl,
-                        type: 'application/x-mpegURL'
-                      });
-                      
-                      player.load();
-                      player.muted(true); // Volver a muteado
-                      player.volume(1.0);
-                      
-                      setTimeout(() => {
-                        player.play().then(() => {
-                          console.log('✅ Stream original cargado');
-                          setIsMuted(true);
-                        }).catch(err => {
-                          console.log('❌ Error con stream original:', err);
-                        });
-                      }, 1000);
-                    }
-                  }}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold flex items-center gap-2 transition-all text-white"
-                >
-                  <span>🔄</span>
-                  <span>Volver Original</span>
-                </button>
-                <button
-                  onClick={async () => {
-                    const url = selectedChannel.url;
-                    
-                    // Intentar abrir con VLC directamente
-                    try {
-                      window.open(`vlc://${url}`, '_blank');
-                    } catch (err) {
-                      console.log('VLC protocol failed');
-                    }
-                    
-                    // Fallback: copiar al portapapeles
-                    try {
-                      await navigator.clipboard.writeText(url);
-                      alert('✅ URL copiada al portapapeles!\n\nSi VLC no se abrió automáticamente:\n1. Abre VLC Media Player\n2. Media → Open Network Stream (Ctrl+N)\n3. Pega la URL (Ctrl+V)\n4. Play');
-                    } catch (err) {
-                      // Si clipboard falla, mostrar la URL
-                      prompt('Copia esta URL y ábrela en VLC:', url);
-                    }
-                  }}
-                  className="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-bold flex items-center gap-2 transition-all text-white shadow-lg"
-                  title="Abrir en VLC Media Player"
-                >
-                  <Play className="w-6 h-6" />
-                  <span>🎬 Abrir en VLC</span>
-                </button>
-                <button
-                  onClick={async () => {
-                    // Solución avanzada: múltiples intentos con diferentes configuraciones
-                    if (playerRef.current) {
-                      const player = playerRef.current;
-                      const originalUrl = selectedChannel.url;
-                      
-                      console.log('🌐 Intentando reproducir en web con múltiples métodos...');
-                      setError(null);
-                      setIsStreamLoading(true);
-                      
-                      const methods = [
-                        {
-                          name: 'HLS con CORS bypass',
-                          config: {
-                            src: originalUrl,
-                            type: 'application/x-mpegURL',
-                            crossOrigin: 'anonymous'
-                          }
-                        },
-                        {
-                          name: 'Video directo',
-                          config: {
-                            src: originalUrl,
-                            type: 'video/mp4'
-                          }
-                        },
-                        {
-                          name: 'HLS nativo',
-                          config: {
-                            src: originalUrl,
-                            type: 'application/vnd.apple.mpegurl'
-                          }
-                        },
-                        {
-                          name: 'Stream sin CORS',
-                          config: {
-                            src: originalUrl,
-                            type: 'application/x-mpegURL'
-                          }
-                        }
-                      ];
-                      
-                      for (let i = 0; i < methods.length; i++) {
-                        const method = methods[i];
-                        console.log(`🔄 Probando método ${i + 1}: ${method.name}`);
-                        
-                        try {
-                          // Configurar el player con el método actual
-                          player.src(method.config);
-                          player.load();
-                          
-                          // Esperar a que cargue
-                          await new Promise((resolve, reject) => {
-                            const timeout = setTimeout(() => {
-                              reject(new Error('Timeout'));
-                            }, 3000);
-                            
-                            player.ready(() => {
-                              clearTimeout(timeout);
-                              resolve(true);
-                            });
-                            
-                            player.on('error', () => {
-                              clearTimeout(timeout);
-                              reject(new Error('Player error'));
-                            });
-                          });
-                          
-                          // Intentar reproducir
-                          await player.play();
-                          console.log(`✅ ¡Éxito con método: ${method.name}!`);
-                          setIsStreamLoading(false);
-                          setError(null);
-                          return; // Salir si funciona
-                          
-                        } catch (err) {
-                          console.log(`❌ Método ${method.name} falló:`, err);
-                          if (i === methods.length - 1) {
-                            // Último método falló
-                            console.log('❌ Todos los métodos fallaron');
-                            setError('No se puede reproducir en el navegador. Los streams IPTV requieren VLC para funcionar correctamente.');
-                            setIsStreamLoading(false);
-                          }
-                        }
-                      }
-                    }
-                  }}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold flex items-center gap-2 transition-all text-white shadow-lg"
-                  title="Intentar reproducir en el navegador con múltiples métodos"
-                >
-                  <Tv className="w-6 h-6" />
-                  <span>🌐 Probar en Web</span>
-                </button>
-                <button
-                  onClick={() => {
-                    // Abrir stream en nueva pestaña
-                    const url = selectedChannel.url;
-                    console.log('🌐 Abriendo stream en nueva pestaña:', url);
-                    
-                    // Crear una nueva ventana con el stream
-                    const newWindow = window.open('', '_blank', 'width=800,height=600');
-                    if (newWindow) {
-                      newWindow.document.write(`
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                          <title>${selectedChannel.title}</title>
-                          <style>
-                            body { margin: 0; padding: 20px; background: #000; color: white; font-family: Arial; }
-                            video { width: 100%; height: 80vh; background: #000; }
-                            .info { margin-bottom: 20px; }
-                            .error { color: red; margin-top: 20px; }
-                          </style>
-                        </head>
-                        <body>
-                          <div class="info">
-                            <h2>${selectedChannel.title}</h2>
-                            <p>Intentando reproducir stream...</p>
-                          </div>
-                          <video controls autoplay muted>
-                            <source src="${url}" type="application/x-mpegURL">
-                            <source src="${url}" type="video/mp4">
-                            Tu navegador no soporta este formato de video.
-                          </video>
-                          <div class="error" id="error" style="display:none;">
-                            <p>No se puede reproducir en el navegador. Usa VLC:</p>
-                            <p>1. Abre VLC Media Player</p>
-                            <p>2. Media → Open Network Stream (Ctrl+N)</p>
-                            <p>3. Pega esta URL: <strong>${url}</strong></p>
-                          </div>
-                          <script>
-                            const video = document.querySelector('video');
-                            const error = document.getElementById('error');
-                            
-                            video.addEventListener('error', () => {
-                              error.style.display = 'block';
-                            });
-                            
-                            video.addEventListener('canplay', () => {
-                              console.log('Stream funcionando!');
-                            });
-                            
-                            // Timeout de 10 segundos
-                            setTimeout(() => {
-                              if (video.readyState < 2) {
-                                error.style.display = 'block';
-                              }
-                            }, 10000);
-                          </script>
-                        </body>
-                        </html>
-                      `);
-                      newWindow.document.close();
-                    }
-                  }}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-bold flex items-center gap-2 transition-all text-white shadow-lg"
-                  title="Abrir stream en nueva pestaña"
-                >
-                  <Tv className="w-6 h-6" />
-                  <span>🪟 Nueva Pestaña</span>
+                  <Play className="w-5 h-5" />
+                  <span className="hidden sm:inline">Abrir en VLC</span>
+                  <span className="sm:hidden">VLC</span>
                 </button>
                 <button 
                   onClick={closeChannel} 
@@ -1264,19 +675,9 @@ function App() {
               </div>
             </div>
             {error ? (
-              <div className="flex flex-col gap-3 text-red-400 bg-red-900/20 p-4 rounded-xl border border-red-500/20 mb-4">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5" />
-                  <span className="font-semibold">Problema de reproducción</span>
-                </div>
-                <p className="text-sm">{error}</p>
-                <div className="text-xs text-red-300 bg-red-800/30 p-2 rounded">
-                  💡 <strong>Solución:</strong> 
-                  {error.includes('sin audio') ? 
-                    'Este canal no tiene audio en el navegador. Usa VLC para reproducir con audio.' :
-                    'Los streams IPTV a menudo no funcionan en navegadores web debido a restricciones de CORS. Usa el botón "Abrir en VLC" para reproducir el canal en VLC Media Player.'
-                  }
-                </div>
+              <div className="flex items-center gap-2 text-red-400 bg-red-900/20 p-4 rounded-xl border border-red-500/20 mb-4">
+                <AlertCircle className="w-5 h-5" />
+                <span>{error}</span>
               </div>
             ) : null}
             <div className="aspect-video bg-black rounded-xl overflow-hidden relative">
@@ -1286,63 +687,7 @@ function App() {
               />
               {isMuted && (
                 <div className="absolute top-4 right-4 bg-red-500/90 px-4 py-2 rounded-lg font-bold text-white animate-pulse">
-                  🔇 SIN AUDIO - Usa los botones de arriba para activar
-                </div>
-              )}
-              {isStreamLoading && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <div className="text-center text-white">
-                    <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
-                    <p className="text-lg font-semibold">Cargando stream...</p>
-                    <p className="text-sm text-gray-300 mt-2">El stream está cargando, puede tardar unos segundos</p>
-                    <div className="mt-4 space-y-2">
-                      <button
-                        onClick={() => {
-                          if (playerRef.current) {
-                            console.log('🎬 Forzando reproducción...');
-                            const player = playerRef.current;
-                            
-                            // Método 1: Reproducir directamente
-                            player.play().catch(err => {
-                              console.log('❌ Método 1 falló:', err);
-                              
-                              // Método 2: Muteado y reproducir
-                              player.muted(true);
-                              player.play().catch(err2 => {
-                                console.log('❌ Método 2 falló:', err2);
-                                
-                                // Método 3: Recargar y reproducir
-                                player.load();
-                                setTimeout(() => {
-                                  player.play().catch(err3 => {
-                                    console.log('❌ Método 3 falló:', err3);
-                                    setError('No se puede reproducir. Usa VLC.');
-                                    setIsStreamLoading(false);
-                                  });
-                                }, 1000);
-                              });
-                            });
-                          }
-                        }}
-                        className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold"
-                      >
-                        ▶️ Forzar Reproducción
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          // Abrir directamente en nueva pestaña
-                          const url = selectedChannel?.url;
-                          if (url) {
-                            window.open(url, '_blank');
-                          }
-                        }}
-                        className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-semibold"
-                      >
-                        🪟 Abrir Directamente
-                      </button>
-                    </div>
-                  </div>
+                  🔇 SIN AUDIO - Haz click en "Activar Audio"
                 </div>
               )}
             </div>
