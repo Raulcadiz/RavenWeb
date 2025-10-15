@@ -5,8 +5,6 @@ import type { ChannelInfo, SavedPlaylist } from './api';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 import '@videojs/http-streaming';
-
-// Tipos para Video.js
 import type Player from 'video.js/dist/types/player';
 
 function App() {
@@ -107,16 +105,20 @@ function App() {
     player.ready(() => {
       player.load();
       setTimeout(() => {
-        player.play().catch(err => {
-          if (err.name !== 'AbortError') {
-            console.error('Error playing:', err);
-          }
-        });
+        // Line 110: Fix TS2532 - Check if player exists
+        if (player) {
+          player.play().catch(err => {
+            if (err.name !== 'AbortError') {
+              console.error('Error playing:', err);
+            }
+          });
+        }
       }, 300);
     });
 
     player.on('volumechange', () => {
-      setIsMuted(player.muted());
+      // Line 119: Fix TS2345 - Ensure muted is boolean
+      setIsMuted(player ? player.muted() ?? false : false);
     });
 
     player.on('error', () => {
@@ -234,15 +236,8 @@ function App() {
     setError(null);
 
     try {
-      // Cargar desde cache - NO necesita process()
       await playlistsApi.load(name);
-      
-      // NO llamar a parserApi.process() - ya está en cache
-      // await parserApi.process(); ❌
-      
-      // Pequeña pausa para asegurar que el backend terminó
       await new Promise(resolve => setTimeout(resolve, 500));
-      
       setIsInitialized(true);
       setShowSavedPlaylists(false);
     } catch (err: any) {
@@ -269,7 +264,7 @@ function App() {
     if (isInitialized) {
       loadData();
     }
-  }, [isInitialized, filter, currentPage, searchTerm, selectedGroup]);
+  }, [isInitialized, filter, currentPage, searchTerm, selectedGroup, loadData]);
 
   const toggleFavorite = (chNumber: number) => {
     setFavorites(prev => 
@@ -380,7 +375,6 @@ function App() {
 
                 <button
                   onClick={() => {
-                    // Test con stream que tiene audio garantizado
                     const testChannel: ChannelInfo = {
                       title: 'TEST AUDIO',
                       group: 'Test',
@@ -641,7 +635,6 @@ function App() {
                   onClick={async () => {
                     const url = selectedChannel.url.replace('.ts', '.m3u8');
                     
-                    // En móvil, usar Share API si está disponible
                     if (navigator.share) {
                       try {
                         await navigator.share({
@@ -653,7 +646,6 @@ function App() {
                         console.log('Share cancelled');
                       }
                     } else {
-                      // En PC, copiar al portapapeles
                       navigator.clipboard.writeText(url).then(() => {
                         alert('✅ URL copiada!\n\nAbre VLC:\n1. Media → Open Network Stream (Ctrl+N)\n2. Pega la URL\n3. Play → Audio funcionará');
                       });
